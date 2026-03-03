@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Download, Music, Clock, Youtube, Volume2, Info, SkipBack, SkipForward, Repeat, Shuffle, Volume1, VolumeX, Search } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { DownloadModal } from './DownloadModal';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { OptimizedImage } from './OptimizedImage';
+import { NetworkIndicator } from './NetworkIndicator';
+import { DataSaverToggle } from './DataSaverToggle';
 
 interface Beat {
   id: string;
@@ -27,11 +31,32 @@ export function MusicSection() {
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('one');
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dataSaverMode, setDataSaverMode] = useState(false);
+  const [audioQuality, setAudioQuality] = useState<'low' | 'high'>('high');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const { bandwidthMode, online } = useNetworkStatus();
 
   useEffect(() => {
     fetchBeats();
   }, []);
+
+  // Auto-adjust audio quality based on network
+  useEffect(() => {
+    if (bandwidthMode === 'low') {
+      setAudioQuality('low');
+    } else if (bandwidthMode === 'high' && !dataSaverMode) {
+      setAudioQuality('high');
+    }
+  }, [bandwidthMode, dataSaverMode]);
+
+  // Update audio element preload based on data saver mode
+  useEffect(() => {
+    if (audioRef.current) {
+      // In data saver mode, only load metadata, not the full audio
+      audioRef.current.preload = dataSaverMode || bandwidthMode === 'low' ? 'metadata' : 'auto';
+    }
+  }, [dataSaverMode, bandwidthMode]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -257,6 +282,37 @@ export function MusicSection() {
           </div>
         </div>
 
+        {/* Network Status & Data Saver Controls */}
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <NetworkIndicator />
+          <DataSaverToggle onToggle={setDataSaverMode} />
+          
+          {/* Audio Quality Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Audio Quality:</span>
+            <select
+              value={audioQuality}
+              onChange={(e) => setAudioQuality(e.target.value as 'low' | 'high')}
+              className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white transition-all"
+            >
+              <option value="low" className="bg-black">Low (Save Data)</option>
+              <option value="high" className="bg-black">High (Best Quality)</option>
+            </select>
+          </div>
+          
+          {/* Bandwidth warning */}
+          {!online && (
+            <div className="px-4 py-2 bg-red-500/20 border border-red-500/40 rounded-lg text-red-300 text-sm">
+              ⚠️ You're offline. Audio playback unavailable.
+            </div>
+          )}
+          {bandwidthMode === 'low' && online && (
+            <div className="px-4 py-2 bg-yellow-500/20 border border-yellow-500/40 rounded-lg text-yellow-300 text-sm">
+              ⚡ Slow connection detected. Consider enabling Data Saver mode.
+            </div>
+          )}
+        </div>
+
         {/* Filter Tabs */}
         <div className="flex space-x-4 mb-8">
           <button
@@ -307,15 +363,19 @@ export function MusicSection() {
             {searchedBeats.map((beat, index) => (
               <div
                 key={beat.id}
-                className={`grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[auto_1fr_auto_auto_auto] gap-2 md:gap-4 px-3 md:px-6 py-4 hover:bg-white/10 transition-all group ${
+                onClick={() => handlePlayPause(beat)}
+                className={`grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[auto_1fr_auto_auto_auto] gap-2 md:gap-4 px-3 md:px-6 py-4 hover:bg-white/10 transition-all group cursor-pointer ${
                   playingId === beat.id ? 'bg-white/10' : ''
                 }`}
               >
                 {/* Play Button & Number */}
                 <div className="w-8 md:w-12 flex items-center">
                   <button
-                    onClick={() => handlePlayPause(beat)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlayPause(beat);
+                    }}
+                    className="opacity-0 md:group-hover:opacity-100 transition-opacity"
                   >
                     {playingId === beat.id ? (
                       <Pause className="w-4 md:w-5 h-4 md:h-5 text-white" />
@@ -323,18 +383,27 @@ export function MusicSection() {
                       <Play className="w-4 md:w-5 h-4 md:h-5 text-white" />
                     )}
                   </button>
-                  <span className={`text-gray-400 text-sm md:text-base group-hover:hidden ${playingId === beat.id ? 'hidden' : ''}`}>
+                  <span className={`text-gray-400 text-sm md:text-base md:group-hover:hidden ${playingId === beat.id ? 'hidden' : ''}`}>
                     {index + 1}
+                  </span>
+                  {/* Mobile: Always show play/pause icon */}
+                  <span className="md:hidden">
+                    {playingId === beat.id ? (
+                      <Pause className="w-4 h-4 text-white" />
+                    ) : (
+                      <Play className="w-4 h-4 text-gray-400" />
+                    )}
                   </span>
                 </div>
 
                 {/* Track Info */}
                 <div className="flex items-center space-x-2 md:space-x-4 min-w-0">
                   {beat.imageUrl ? (
-                    <img
+                    <OptimizedImage
                       src={beat.imageUrl}
                       alt={beat.title}
-                      className="hidden md:block w-12 h-12 object-cover rounded flex-shrink-0"
+                      className="hidden md:block w-12 h-12 rounded flex-shrink-0"
+                      lowBandwidth={dataSaverMode || bandwidthMode === 'low'}
                     />
                   ) : (
                     <div className="hidden md:flex w-12 h-12 bg-white/10 rounded items-center justify-center flex-shrink-0">
@@ -364,8 +433,11 @@ export function MusicSection() {
                 {/* Actions */}
                 <div className="w-12 md:w-32 flex items-center justify-end">
                   <button
-                    onClick={() => handleDownloadClick(beat)}
-                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-full transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadClick(beat);
+                    }}
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 hover:bg-white/10 rounded-full transition-all active:scale-95"
                     title="Download"
                   >
                     <Download className="w-4 h-4 text-white" />
