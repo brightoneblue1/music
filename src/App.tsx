@@ -8,11 +8,27 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { Navigation } from "./components/Navigation";
 import { Footer } from "./components/Footer";
 import { AccessibilityToolbar } from "./components/AccessibilityToolbar";
+import shhmaartLogo from "figma:asset/ac8308735979e996faf7b23f237b7e08b280f281.png";
 
 export default function App() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // Set favicon and page title
+  useEffect(() => {
+    // Update favicon
+    let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = shhmaartLogo;
+    
+    // Update page title
+    document.title = 'shhmaart - Professional Music & Digital Marketing';
+  }, []);
 
   // Auto-detect system theme preference on mount
   useEffect(() => {

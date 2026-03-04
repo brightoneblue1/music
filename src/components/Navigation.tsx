@@ -1,5 +1,5 @@
 import { Music, Briefcase, Home, Lock, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import logo from 'figma:asset/752e3867204e01d9cd9312e2a5ecbc27f9afe447.png';
 
 interface NavigationProps {
@@ -15,6 +15,19 @@ export function Navigation({ activeSection, setActiveSection, onAdminClick }: Na
     setActiveSection(section);
     setMobileMenuOpen(false);
   };
+
+  // Secret keyboard shortcut: Ctrl+Shift+A
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        onAdminClick();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [onAdminClick]);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-lg border-b border-white/10">
@@ -90,13 +103,8 @@ export function Navigation({ activeSection, setActiveSection, onAdminClick }: Na
               <span>FAQ</span>
             </button>
             
-            <button
-              onClick={onAdminClick}
-              className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:text-white transition-all"
-              title="Admin Login"
-            >
-              <Lock className="w-4 h-4" />
-            </button>
+            {/* Admin Login - Hidden but accessible via secret key combination */}
+            {/* Press Ctrl+Shift+A to access admin panel */}
           </div>
 
           {/* Mobile Navigation */}
@@ -177,18 +185,7 @@ export function Navigation({ activeSection, setActiveSection, onAdminClick }: Na
               <span>FAQ</span>
             </button>
 
-            <div className="border-t border-white/10 pt-2 mt-2">
-              <button
-                onClick={() => {
-                  onAdminClick();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-              >
-                <Lock className="w-5 h-5" />
-                <span>Admin Login</span>
-              </button>
-            </div>
+            {/* Admin login removed from mobile menu for security */}
           </div>
         </div>
       )}
