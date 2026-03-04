@@ -17,14 +17,22 @@ export default function App() {
 
   // Set favicon and page title
   useEffect(() => {
-    // Update favicon
-    let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
-    link.href = shhmaartLogo;
+    // Update favicon - support multiple icon types for better browser compatibility
+    const updateFavicon = (rel: string, type?: string) => {
+      let link: HTMLLinkElement | null = document.querySelector(`link[rel='${rel}']`);
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = rel;
+        if (type) link.type = type;
+        document.head.appendChild(link);
+      }
+      link.href = shhmaartLogo;
+    };
+
+    // Set multiple favicon formats for cross-browser support
+    updateFavicon('icon');
+    updateFavicon('shortcut icon');
+    updateFavicon('apple-touch-icon');
     
     // Update page title
     document.title = 'shhmaart - Professional Music & Digital Marketing';
