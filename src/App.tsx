@@ -8,7 +8,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { Navigation } from "./components/Navigation";
 import { Footer } from "./components/Footer";
 import { AccessibilityToolbar } from "./components/AccessibilityToolbar";
-import shhmaartLogo from "figma:asset/ac8308735979e996faf7b23f237b7e08b280f281.png";
+import shhmaartLogo from "figma:asset/752e3867204e01d9cd9312e2a5ecbc27f9afe447.png";
 
 export default function App() {
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -35,7 +35,7 @@ export default function App() {
     updateFavicon('apple-touch-icon');
     
     // Update page title
-    document.title = 'shhmaart - Professional Music & Digital Marketing';
+    document.title = 'shhmaart - Music & Digital Solutions';
   }, []);
 
   // Auto-detect system theme preference on mount
