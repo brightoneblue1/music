@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Loader2, Plus, File, Image as ImageIcon } from 'lucide-react';
+import { Upload, Music, Trash2, Loader2, Plus, File, Image as ImageIcon, Edit2, DollarSign, X } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface Beat {
@@ -11,12 +11,14 @@ interface Beat {
   type: 'beat' | 'remix';
   audioUrl: string;
   imageUrl: string;
+  price?: string;
 }
 
 export function BeatUpload() {
   const [beats, setBeats] = useState<Beat[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [audioDragActive, setAudioDragActive] = useState(false);
@@ -31,6 +33,7 @@ export function BeatUpload() {
     type: 'beat' as 'beat' | 'remix',
     audioUrl: '',
     imageUrl: '',
+    price: '',
   });
 
   useEffect(() => {
@@ -222,6 +225,7 @@ export function BeatUpload() {
           type: 'beat',
           audioUrl: '',
           imageUrl: '',
+          price: '',
         });
         setShowForm(false);
         fetchBeats();
@@ -258,6 +262,85 @@ export function BeatUpload() {
     }
   };
 
+  const handleEdit = (beat: Beat) => {
+    setEditingBeat(beat);
+    setFormData({
+      title: beat.title,
+      genre: beat.genre,
+      bpm: beat.bpm,
+      duration: beat.duration,
+      type: beat.type,
+      audioUrl: beat.audioUrl,
+      imageUrl: beat.imageUrl || '',
+      price: beat.price || '',
+    });
+    setShowForm(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingBeat) return;
+    if (!formData.audioUrl) {
+      alert('Please upload an audio file');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/beats/${editingBeat.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        }
+      );
+
+      if (response.ok) {
+        setFormData({
+          title: '',
+          genre: '',
+          bpm: '',
+          duration: '',
+          type: 'beat',
+          audioUrl: '',
+          imageUrl: '',
+          price: '',
+        });
+        setEditingBeat(null);
+        setShowForm(false);
+        fetchBeats();
+      } else {
+        alert('Failed to update beat');
+      }
+    } catch (error) {
+      console.error('Error updating beat:', error);
+      alert('Error updating beat');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBeat(null);
+    setFormData({
+      title: '',
+      genre: '',
+      bpm: '',
+      duration: '',
+      type: 'beat',
+      audioUrl: '',
+      imageUrl: '',
+      price: '',
+    });
+    setShowForm(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -272,7 +355,12 @@ export function BeatUpload() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white/5 rounded-lg p-6 space-y-6">
+        <form onSubmit={editingBeat ? handleUpdate : handleSubmit} className="bg-white/5 rounded-lg p-6 space-y-6">
+          {editingBeat && (
+            <div className="bg-blue-500/20 border-2 border-blue-500/50 rounded-lg p-4 mb-4">
+              <p className="text-blue-300 font-semibold">✏️ Editing: {editingBeat.title}</p>
+            </div>
+          )}
           {/* Audio File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -406,6 +494,18 @@ export function BeatUpload() {
                 <option value="remix">Remix</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Price (Optional)</label>
+              <input
+                type="text"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="e.g., $29.99 or Free"
+                className="w-full px-4 py-2 bg-white/5 border-2 border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter price or leave empty if free</p>
+            </div>
           </div>
 
           <div className="flex space-x-4">
@@ -417,18 +517,18 @@ export function BeatUpload() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Adding...</span>
+                  <span>{editingBeat ? 'Updating...' : 'Adding...'}</span>
                 </>
               ) : (
                 <>
-                  <Upload className="w-5 h-5" />
-                  <span>Add Beat</span>
+                  {editingBeat ? <Edit2 className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
+                  <span>{editingBeat ? 'Update Beat' : 'Add Beat'}</span>
                 </>
               )}
             </button>
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={editingBeat ? handleCancelEdit : () => setShowForm(false)}
               className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all"
             >
               Cancel
@@ -444,23 +544,41 @@ export function BeatUpload() {
             key={beat.id}
             className="bg-white/5 rounded-lg p-4 flex items-center justify-between hover:bg-white/10 transition-all"
           >
-            <div className="flex items-center space-x-4">
-              <div className="bg-white w-12 h-12 rounded-lg flex items-center justify-center">
+            <div className="flex items-center space-x-4 flex-1">
+              <div className="bg-white w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Music className="w-6 h-6 text-black" />
               </div>
-              <div>
-                <h4 className="text-white font-semibold">{beat.title}</h4>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-white font-semibold">{beat.title}</h4>
+                  {beat.price && (
+                    <span className="flex items-center gap-1 text-green-400 text-sm font-semibold bg-green-500/10 px-2 py-1 rounded">
+                      <DollarSign className="w-4 h-4" />
+                      {beat.price}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-400">
                   {beat.genre} • {beat.bpm} BPM • {beat.duration} • {beat.type}
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => handleDelete(beat.id)}
-              className="text-red-400 hover:text-red-300 transition-colors"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <button
+                onClick={() => handleEdit(beat)}
+                className="text-blue-400 hover:text-blue-300 transition-colors p-2"
+                title="Edit beat"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleDelete(beat.id)}
+                className="text-red-400 hover:text-red-300 transition-colors p-2"
+                title="Delete beat"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         ))}
 

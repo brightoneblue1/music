@@ -224,6 +224,32 @@ app.delete("/make-server-fe24c337/beats/:id", async (c) => {
   }
 });
 
+// Update beat
+app.put("/make-server-fe24c337/beats/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const beatData = await c.req.json();
+    
+    // Get existing beat to preserve certain fields like createdAt and listenCount
+    const existingBeat = await kv.get(`beat:${id}`);
+    
+    const updatedBeat = {
+      ...existingBeat,
+      ...beatData,
+      id, // Ensure ID doesn't change
+      createdAt: existingBeat?.createdAt || new Date().toISOString(),
+      listenCount: existingBeat?.listenCount || 0,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`beat:${id}`, updatedBeat);
+    return c.json({ success: true, beat: updatedBeat });
+  } catch (error) {
+    console.error("Error updating beat:", error);
+    return c.json({ error: "Failed to update beat" }, 500);
+  }
+});
+
 // Track listen count
 app.post("/make-server-fe24c337/track-listen", async (c) => {
   try {

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Download, Youtube, Disc3, Mail, Loader2, Coffee, DollarSign, Smartphone, Copy, Check } from 'lucide-react';
+import { X, Download, Loader2, Coffee, DollarSign } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
-import mpesaQR from 'figma:asset/685545e79fdf02967cfc56df2a534cd977c90abf.png';
 
 interface Beat {
   id: string;
@@ -20,55 +19,9 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<'youtube' | 'spotify' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  const [copiedMpesa, setCopiedMpesa] = useState(false);
 
   const SPOTIFY_URL = 'https://open.spotify.com/artist/6nIsLjLEDuhdbJjpWGhQvn?si=8Cu_4NtkQDGKCUEg4iTsvA';
   const YOUTUBE_URL = 'https://www.youtube.com/@shhmaart';
-  const MPESA_NUMBER = '0701396160';
-
-  const copyMpesaNumber = () => {
-    // Try modern clipboard API first
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(MPESA_NUMBER)
-        .then(() => {
-          setCopiedMpesa(true);
-          setTimeout(() => setCopiedMpesa(false), 2000);
-        })
-        .catch(() => {
-          // Fallback to legacy method
-          fallbackCopy();
-        });
-    } else {
-      // Use fallback for browsers that don't support clipboard API
-      fallbackCopy();
-    }
-  };
-
-  const fallbackCopy = () => {
-    try {
-      // Create a temporary textarea element
-      const textarea = document.createElement('textarea');
-      textarea.value = MPESA_NUMBER;
-      textarea.style.position = 'fixed';
-      textarea.style.top = '0';
-      textarea.style.left = '0';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      
-      // Try to copy using execCommand
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      
-      if (successful) {
-        setCopiedMpesa(true);
-        setTimeout(() => setCopiedMpesa(false), 2000);
-      }
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,50 +206,6 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
               <DollarSign className="w-5 h-5" />
               <span>Support via PayPal</span>
             </a>
-          </div>
-
-          {/* Support via Mpesa - For All Music */}
-          <div className="bg-green-500/10 border-2 border-green-500/30 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <Smartphone className="w-6 h-6 text-green-400" />
-              <h4 className="text-white font-semibold">Send Money via M-Pesa</h4>
-            </div>
-            <p className="text-gray-300 text-sm mb-3">
-              Your support helps me keep creating amazing music!
-            </p>
-            
-            {/* M-Pesa Number Display with Copy */}
-            <div className="bg-black/30 border border-green-500/50 rounded-lg p-3 mb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">M-Pesa Number</p>
-                  <p className="text-2xl font-bold text-white tracking-wider">{MPESA_NUMBER}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyMpesaNumber}
-                  className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-all"
-                >
-                  {copiedMpesa ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* QR Code */}
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-2">Or scan QR code</p>
-              <img src={mpesaQR} alt="M-Pesa QR Code" className="w-32 h-32 mx-auto border-2 border-green-500/30 rounded-lg p-2" />
-            </div>
           </div>
 
           <button
