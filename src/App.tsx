@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Toaster, toast } from "sonner";
 import { Hero } from "./components/Hero";
 import { MusicSection } from "./components/MusicSection";
 import { ServicesSection } from "./components/ServicesSection";
@@ -8,6 +9,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { Navigation } from "./components/Navigation";
 import { Footer } from "./components/Footer";
 import { AccessibilityToolbar } from "./components/AccessibilityToolbar";
+import { projectId, publicAnonKey } from "./utils/supabase/info";
 import shhmaartLogo from "figma:asset/752e3867204e01d9cd9312e2a5ecbc27f9afe447.png";
 
 export default function App() {
@@ -98,8 +100,68 @@ export default function App() {
     document.documentElement.classList.add(theme);
   }, [theme]);
 
+  // Handle Stripe payment redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+
+    if (!payment) return;
+
+    window.history.replaceState({}, '', window.location.pathname);
+
+    if (payment === 'cancelled') {
+      toast.error('Payment cancelled. No charges were made.');
+      return;
+    }
+
+    if (payment === 'success') {
+      const sessionId = params.get('session');
+
+      const verify = async () => {
+        if (!sessionId) {
+          toast.success('Payment successful! Visit the music section to download your beat.');
+          setActiveSection('music');
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/verify-payment`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${publicAnonKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ sessionId }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.paid) {
+              const beatTitle = data.metadata?.beatTitle;
+              toast.success(
+                beatTitle
+                  ? `Payment confirmed! "${beatTitle}" is ready to download.`
+                  : 'Payment confirmed! Your beat is ready to download.'
+              );
+              setActiveSection('music');
+            }
+          }
+        } catch {
+          toast.success('Payment received! Visit the music section to download your beat.');
+          setActiveSection('music');
+        }
+      };
+
+      verify();
+    }
+  }, []);
+
   return (
     <div className={`min-h-screen bg-black ${theme}`} id="main-content" tabIndex={-1}>
+      <Toaster position="top-center" richColors />
       {!isAdminMode ? (
         <>
           <Navigation

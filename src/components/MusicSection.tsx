@@ -16,6 +16,7 @@ interface Beat {
   audioUrl: string;
   imageUrl: string;
   type: 'beat' | 'remix';
+  price?: string;
 }
 
 export function MusicSection() {

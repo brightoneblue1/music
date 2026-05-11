@@ -846,10 +846,11 @@ app.post("/make-server-fe24c337/create-checkout", async (c) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
+          "payment_method_types[0]": "card",
           mode: "payment",
           customer_email: email,
-          success_url: `${c.req.header("origin") || "http://localhost:5173"}?payment=success&beat=${beatId}`,
-          cancel_url: `${c.req.header("origin") || "http://localhost:5173"}?payment=cancelled`,
+          success_url: `${c.req.header("origin") || "http://localhost:3000"}?payment=success&beat=${beatId}&session={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${c.req.header("origin") || "http://localhost:3000"}?payment=cancelled`,
           "line_items[0][price_data][currency]": "usd",
           "line_items[0][price_data][product_data][name]":
             beatTitle,
@@ -866,12 +867,14 @@ app.post("/make-server-fe24c337/create-checkout", async (c) => {
     );
 
     if (!checkoutResponse.ok) {
-      const error = await checkoutResponse.text();
-      console.error("Stripe checkout error:", error);
-      return c.json(
-        { error: "Failed to create checkout session" },
-        500,
-      );
+      const errorText = await checkoutResponse.text();
+      console.error("Stripe checkout error:", errorText);
+      let stripeMessage = "Failed to create checkout session";
+      try {
+        const errJson = JSON.parse(errorText);
+        stripeMessage = errJson?.error?.message || stripeMessage;
+      } catch (_) {}
+      return c.json({ error: stripeMessage }, 500);
     }
 
     const session = await checkoutResponse.json();
@@ -928,6 +931,82 @@ app.post("/make-server-fe24c337/verify-payment", async (c) => {
   } catch (error) {
     console.error("Error verifying payment:", error);
     return c.json({ error: "Failed to verify payment" }, 500);
+  }
+});
+
+// ============================================
+// PAYPAL PAYMENT CAPTURE & VERIFICATION
+// ============================================
+
+app.post("/make-server-fe24c337/capture-paypal", async (c) => {
+  try {
+    const { orderId, expectedAmount } = await c.req.json();
+    const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
+    const secret = Deno.env.get("PAYPAL_SECRET");
+
+    if (!clientId || !secret) {
+      return c.json({ error: "PayPal not configured" }, 500);
+    }
+
+    // Get OAuth2 access token
+    const tokenResponse = await fetch(
+      "https://api-m.paypal.com/v1/oauth2/token",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${clientId}:${secret}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "grant_type=client_credentials",
+      },
+    );
+
+    if (!tokenResponse.ok) {
+      console.error("PayPal auth error:", await tokenResponse.text());
+      return c.json({ error: "Failed to authenticate with PayPal" }, 500);
+    }
+
+    const { access_token } = await tokenResponse.json();
+
+    // Capture the order server-side
+    const captureResponse = await fetch(
+      `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!captureResponse.ok) {
+      const err = await captureResponse.text();
+      console.error("PayPal capture error:", err);
+      return c.json({ error: "Payment capture failed" }, 500);
+    }
+
+    const capture = await captureResponse.json();
+
+    if (capture.status !== "COMPLETED") {
+      return c.json({ error: "Payment not completed" }, 400);
+    }
+
+    // Verify the captured amount matches the expected price
+    const capturedAmount = parseFloat(
+      capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ?? "0",
+    );
+
+    if (Math.abs(capturedAmount - expectedAmount) > 0.01) {
+      console.error(`PayPal amount mismatch: expected ${expectedAmount}, got ${capturedAmount}`);
+      return c.json({ error: "Payment amount mismatch" }, 400);
+    }
+
+    console.log(`💰 PayPal payment verified: $${capturedAmount}`);
+    return c.json({ success: true, capturedAmount });
+  } catch (error) {
+    console.error("Error capturing PayPal payment:", error);
+    return c.json({ error: "Payment verification failed" }, 500);
   }
 });
 
