@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, Loader2, Coffee, DollarSign, ShoppingCart } from 'lucide-react';
+import { X, Download, Loader2, Coffee, DollarSign, ShoppingCart, Check } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 
 const PAYPAL_CLIENT_ID = 'AbgmXdO1Xxl_UIXH3uufRpXlpqpsCeE1ysk68t8U1IPYNpQGRAKCMUFXkaGgeOI1D7TAyRWzyMRJGni2';
 
@@ -34,6 +35,8 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [paypalReady, setPaypalReady] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const paypalContainerRef = useRef<HTMLDivElement>(null);
   const paypalRendered = useRef(false);
 
@@ -142,6 +145,11 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
 
   const handleBuyLicense = async (e: React.SyntheticEvent) => {
     e.preventDefault();
+
+    if (!agreedToTerms) {
+      setShowTermsModal(true);
+      return;
+    }
 
     if (!email) {
       setMessage('Please enter your email');
@@ -289,9 +297,42 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
           {/* Paid beat: Stripe + PayPal */}
           {isPaid ? (
             <div className="space-y-3">
+              {/* Terms & Conditions Checkbox */}
+              <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="flex-shrink-0 mt-1"
+                >
+                  <div
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                      agreedToTerms
+                        ? 'bg-blue-500 border-blue-500'
+                        : 'border-blue-400 hover:border-blue-300'
+                    }`}
+                    role="checkbox"
+                    aria-checked={agreedToTerms}
+                  >
+                    {agreedToTerms && <Check className="w-4 h-4 text-white" />}
+                  </div>
+                </button>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-300">
+                    I have read and agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowTermsModal(true)}
+                      className="text-blue-400 hover:text-blue-300 underline font-semibold"
+                    >
+                      Beat License Agreement
+                    </button>
+                  </p>
+                </div>
+              </div>
+
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !agreedToTerms}
                 className="w-full flex items-center justify-center space-x-2 bg-white hover:bg-gray-200 disabled:bg-white/50 text-black py-4 rounded-lg font-semibold transition-all"
               >
                 {isSubmitting ? (
@@ -394,6 +435,19 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
           )}
         </form>
       </div>
+
+      {/* Terms & Conditions Modal */}
+      <TermsAndConditionsModal
+        isOpen={showTermsModal}
+        onAccept={() => {
+          setAgreedToTerms(true);
+          setShowTermsModal(false);
+        }}
+        onDecline={() => {
+          setAgreedToTerms(false);
+          setShowTermsModal(false);
+        }}
+      />
     </div>
   );
 }
