@@ -8,7 +8,7 @@ export const defaultBeats = [
     bpm: '140',
     duration: '3:24',
     type: 'beat',
-    audioUrl: '',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     imageUrl: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&q=80',
   },
   {
@@ -17,7 +17,7 @@ export const defaultBeats = [
     bpm: '128',
     duration: '4:15',
     type: 'remix',
-    audioUrl: '',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&q=80',
   },
   {
@@ -26,7 +26,7 @@ export const defaultBeats = [
     bpm: '90',
     duration: '3:45',
     type: 'beat',
-    audioUrl: '',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80',
   },
 ];

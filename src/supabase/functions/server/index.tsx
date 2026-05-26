@@ -48,7 +48,7 @@ async function initializeStorage() {
       await supabase.storage.createBucket(
         "make-fe24c337-audio",
         {
-          public: false,
+          public: true,
           fileSizeLimit: 52428800, // 50MB
         },
       );
@@ -708,21 +708,31 @@ app.post("/make-server-fe24c337/upload-file", async (c) => {
       );
     }
 
-    // Create a signed URL that expires in 10 years
-    const { data: signedUrlData, error: signedUrlError } =
-      await supabase.storage
-        .from(bucketName)
-        .createSignedUrl(fileName, 315360000); // 10 years in seconds
+    // For audio files, use public URL; for images, use signed URL
+    let urlToReturn: string;
+    
+    if (type === "audio") {
+      // Generate public URL for audio (since bucket is now public)
+      urlToReturn = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/${bucketName}/${fileName}`;
+    } else {
+      // Create a signed URL for images (bucket is private)
+      const { data: signedUrlData, error: signedUrlError } =
+        await supabase.storage
+          .from(bucketName)
+          .createSignedUrl(fileName, 315360000); // 10 years in seconds
 
-    if (signedUrlError) {
-      console.error(
-        "Error creating signed URL:",
-        signedUrlError,
-      );
-      return c.json(
-        { error: "Failed to create signed URL" },
-        500,
-      );
+      if (signedUrlError) {
+        console.error(
+          "Error creating signed URL:",
+          signedUrlError,
+        );
+        return c.json(
+          { error: "Failed to create signed URL" },
+          500,
+        );
+      }
+      
+      urlToReturn = signedUrlData.signedUrl;
     }
 
     console.log(
@@ -731,7 +741,7 @@ app.post("/make-server-fe24c337/upload-file", async (c) => {
 
     return c.json({
       success: true,
-      url: signedUrlData.signedUrl,
+      url: urlToReturn,
       fileName: fileName,
       bucketName: bucketName,
     });

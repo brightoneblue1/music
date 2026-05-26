@@ -463,7 +463,11 @@ export function MusicSection() {
           )}
         </div>
 
-        <audio ref={audioRef} />
+        <audio 
+          ref={audioRef}
+          crossOrigin="anonymous"
+          controlsList="nodownload"
+        />
       </div>
 
       {/* Fixed Media Player - Spotify Style */}
