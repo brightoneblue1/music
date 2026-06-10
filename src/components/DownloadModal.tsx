@@ -119,16 +119,51 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
           tagline: false,
           height: 48,
         },
-        createOrder: (_data: any, actions: any) => {
-          return actions.order.create({
-            purchase_units: [{
-              description: `Beat License: ${beat.title}`,
-              amount: { currency_code: 'USD', value: beatPrice.toFixed(2) },
-            }],
-          });
+        createOrder: async () => {
+          try {
+            console.log('Creating PayPal order...');
+            
+            if (!email) {
+              throw new Error('Email is required');
+            }
+
+            const response = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/create-paypal-order`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${publicAnonKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  beatId: beat.id,
+                  beatTitle: beat.title,
+                  price: beatPrice,
+                  email,
+                  beatSlug: beat.slug,
+                }),
+              }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.orderId) {
+              console.error('Order creation failed:', data);
+              throw new Error(data.error || 'Failed to create order');
+            }
+
+            console.log('PayPal order created:', data.orderId);
+            return data.orderId;
+          } catch (error) {
+            console.error('Error creating PayPal order:', error);
+            setMessage(`Payment error: ${error instanceof Error ? error.message : 'Failed to create order'}`);
+            throw error;
+          }
         },
         onApprove: async (data: any, _actions: any) => {
           try {
+            console.log('PayPal approval received:', data.orderID);
+            
             const response = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/capture-paypal`,
               {
@@ -141,20 +176,25 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
               }
             );
             const result = await response.json();
+            
             if (!response.ok || !result.success) {
+              console.error('Capture failed:', result);
               setMessage(result.error || 'Payment verification failed. Please contact support.');
               return;
             }
+            
+            console.log('Payment verified successfully');
             setMessage('Payment verified! Your download is starting.');
             triggerDownload();
             setTimeout(() => onClose(), 3000);
-          } catch {
+          } catch (error) {
+            console.error('Payment verification error:', error);
             setMessage('Payment verification failed. Please try again.');
           }
         },
         onError: (err: any) => {
           console.error('PayPal error:', err);
-          setMessage('PayPal payment failed. Please try again or use card payment.');
+          setMessage(`PayPal payment failed: ${err?.message || 'Unknown error'}. Please try again or use card payment.`);
         },
       }).render(paypalContainerRef.current);
     } catch (error) {

@@ -1074,6 +1074,103 @@ app.post("/make-server-fe24c337/verify-payment", async (c) => {
 });
 
 // ============================================
+// PAYPAL ORDER CREATION
+// ============================================
+
+app.post("/make-server-fe24c337/create-paypal-order", async (c) => {
+  try {
+    const { beatTitle, price, email, beatSlug, beatId } = await c.req.json();
+    const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
+    const secret = Deno.env.get("PAYPAL_SECRET");
+
+    if (!clientId || !secret) {
+      console.error("PayPal not configured - missing CLIENT_ID or SECRET");
+      return c.json({ error: "PayPal not configured" }, 500);
+    }
+
+    // Get OAuth2 access token
+    const tokenResponse = await fetch(
+      "https://api-m.paypal.com/v1/oauth2/token",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${clientId}:${secret}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "grant_type=client_credentials",
+      },
+    );
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error("PayPal token error:", errorText);
+      return c.json({ error: "Failed to authenticate with PayPal" }, 500);
+    }
+
+    const { access_token } = await tokenResponse.json();
+
+    // Get the origin for return URLs
+    const origin = c.req.header("origin") || "http://localhost:3000";
+    const returnPath = beatSlug ? `/b/${beatSlug}` : "";
+    const successUrl = `${origin}${returnPath}?payment=success&beat=${beatId}`;
+    const cancelUrl = beatSlug
+      ? `${origin}/b/${beatSlug}?payment=cancelled`
+      : `${origin}?payment=cancelled`;
+
+    // Create PayPal order
+    const orderResponse = await fetch(
+      "https://api-m.paypal.com/v2/checkout/orders",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          intent: "CAPTURE",
+          payer: {
+            email_address: email,
+          },
+          purchase_units: [
+            {
+              reference_id: `beat-${beatId}`,
+              description: `Beat License: ${beatTitle}`,
+              amount: {
+                currency_code: "USD",
+                value: price.toFixed(2),
+              },
+            },
+          ],
+          application_context: {
+            return_url: successUrl,
+            cancel_url: cancelUrl,
+            user_action: "PAY_NOW",
+            brand_name: "shhmaart",
+          },
+        }),
+      },
+    );
+
+    if (!orderResponse.ok) {
+      const errorText = await orderResponse.text();
+      console.error("PayPal order creation error:", errorText);
+      return c.json({ error: "Failed to create PayPal order" }, 500);
+    }
+
+    const order = await orderResponse.json();
+    console.log(`✅ PayPal order created: ${order.id}`);
+
+    return c.json({
+      success: true,
+      orderId: order.id,
+    });
+  } catch (error) {
+    console.error("Error creating PayPal order:", error);
+    return c.json({ error: "Failed to create PayPal order" }, 500);
+  }
+});
+
+// ============================================
 // PAYPAL PAYMENT CAPTURE & VERIFICATION
 // ============================================
 
