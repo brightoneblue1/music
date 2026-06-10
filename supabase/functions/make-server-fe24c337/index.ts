@@ -1,8 +1,8 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
-import * as kv from "./kv_store.tsx";
-import { defaultBeats, defaultServices } from "./seed-data.tsx";
+import * as kv from "./kv_store.ts";
+import { defaultBeats, defaultServices } from "./seed-data.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
@@ -18,7 +18,7 @@ app.use("*", cors());
 app.use("*", logger(console.log));
 
 // Get admin password from environment variable (fallback to default for development)
-const ADMIN_PASSWORD =uh8K.7Y47_xF_y6
+const ADMIN_PASSWORD =
   Deno.env.get("ADMIN_PASSWORD") || "admin123";
 
 if (!Deno.env.get("ADMIN_PASSWORD")) {

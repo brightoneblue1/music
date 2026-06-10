@@ -17,6 +17,7 @@ interface Beat {
   audioUrl: string;
   type: 'beat' | 'remix';
   price?: string;
+  slug?: string;
 }
 
 function parseBeatPrice(price?: string): number {
@@ -168,7 +169,13 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
             'Authorization': `Bearer ${publicAnonKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ beatId: beat.id, beatTitle: beat.title, price: beatPrice, email }),
+          body: JSON.stringify({
+            beatId: beat.id,
+            beatTitle: beat.title,
+            price: beatPrice,
+            email,
+            beatSlug: beat.slug,
+          }),
         }
       );
 

@@ -57,6 +57,10 @@ ADMIN_CREDENTIALS.md
 credentials.json
 secrets.json
 
+# Supabase
+supabase/.temp
+.supabase/
+
 # OS
 Thumbs.db
 .DS_Store

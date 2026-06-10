@@ -9,8 +9,13 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { Navigation } from "./components/Navigation";
 import { Footer } from "./components/Footer";
 import { AccessibilityToolbar } from "./components/AccessibilityToolbar";
+import { BeatSalesPage } from "./components/BeatSalesPage";
 import { projectId, publicAnonKey } from "./utils/supabase/info";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-ignore - Figma asset import is handled by the bundler
 import shhmaartLogo from "figma:asset/752e3867204e01d9cd9312e2a5ecbc27f9afe447.png";
+
+
 
 export default function App() {
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -100,8 +105,11 @@ export default function App() {
     document.documentElement.classList.add(theme);
   }, [theme]);
 
-  // Handle Stripe payment redirects
+  // Handle Stripe payment redirects (skip on beat sales pages — handled by BeatSalesPage)
   useEffect(() => {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/b/')) return;
+
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
 
@@ -172,15 +180,28 @@ export default function App() {
 
           <AccessibilityToolbar theme={theme} onThemeChange={setTheme} />
 
-          {activeSection === "home" && (
-            <Hero setActiveSection={setActiveSection} />
-          )}
-          {activeSection === "music" && <MusicSection />}
-          {activeSection === "services" && <ServicesSection />}
-          {activeSection === "about" && <AboutSection />}
-          {activeSection === "faq" && <FAQSection />}
+          {(() => {
+            const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+            const isBeatSalesPath = pathname.startsWith('/b/');
+            if (isBeatSalesPath) {
+              return <BeatSalesPage />;
+            }
 
-          <Footer setActiveSection={setActiveSection} />
+
+            return (
+              <>
+                {activeSection === "home" && (
+                  <Hero setActiveSection={setActiveSection} />
+                )}
+                {activeSection === "music" && <MusicSection />}
+                {activeSection === "services" && <ServicesSection />}
+                {activeSection === "about" && <AboutSection />}
+                {activeSection === "faq" && <FAQSection />}
+
+                <Footer setActiveSection={setActiveSection} />
+              </>
+            );
+          })()}
         </>
       ) : (
         <AdminDashboard onExit={() => setIsAdminMode(false)} />

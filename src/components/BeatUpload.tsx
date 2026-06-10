@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Loader2, Plus, File, Image as ImageIcon, Edit2, DollarSign, X } from 'lucide-react';
+import { Upload, Music, Trash2, Loader2, Plus, File, Image as ImageIcon, Edit2, DollarSign, X, Copy, Link2 } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { copyBeatSalesUrl, getBeatSalesUrl } from '../utils/beatLinks';
+import { toast } from 'sonner';
 
 interface Beat {
   id: string;
@@ -12,6 +14,7 @@ interface Beat {
   audioUrl: string;
   imageUrl: string;
   price?: string;
+  slug?: string;
 }
 
 export function BeatUpload() {
@@ -217,6 +220,13 @@ export function BeatUpload() {
       );
 
       if (response.ok) {
+        const data = await response.json();
+        if (data.beat?.slug) {
+          toast.success('Beat added! Sales link copied to clipboard.', {
+            description: getBeatSalesUrl(data.beat.slug),
+          });
+          await copyBeatSalesUrl(data.beat.slug);
+        }
         setFormData({
           title: '',
           genre: '',
@@ -339,6 +349,17 @@ export function BeatUpload() {
       price: '',
     });
     setShowForm(false);
+  };
+
+  const handleCopySalesLink = async (beat: Beat) => {
+    if (!beat.slug) {
+      toast.error('Sales link not available yet. Try refreshing the page.');
+      return;
+    }
+    await copyBeatSalesUrl(beat.slug);
+    toast.success('Sales link copied!', {
+      description: getBeatSalesUrl(beat.slug),
+    });
   };
 
   return (
@@ -561,9 +582,24 @@ export function BeatUpload() {
                 <p className="text-sm text-gray-400">
                   {beat.genre} • {beat.bpm} BPM • {beat.duration} • {beat.type}
                 </p>
+                {beat.slug && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Link2 className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                    <span className="text-xs text-gray-500 truncate">{getBeatSalesUrl(beat.slug)}</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0">
+              {beat.slug && (
+                <button
+                  onClick={() => handleCopySalesLink(beat)}
+                  className="text-green-400 hover:text-green-300 transition-colors p-2"
+                  title="Copy sales link"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
+              )}
               <button
                 onClick={() => handleEdit(beat)}
                 className="text-blue-400 hover:text-blue-300 transition-colors p-2"
