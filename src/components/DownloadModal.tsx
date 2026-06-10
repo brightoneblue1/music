@@ -55,7 +55,15 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
 
     const existing = document.getElementById('paypal-sdk');
     if (existing) {
-      existing.addEventListener('load', () => setPaypalReady(true));
+      existing.addEventListener('load', () => {
+        console.log('PayPal SDK loaded');
+        setPaypalReady(true);
+      });
+      existing.addEventListener('error', () => {
+        console.error('PayPal SDK failed to load');
+        setMessage('PayPal failed to load. Please try the card payment option.');
+        setPaypalReady(false);
+      });
       return;
     }
 
@@ -63,62 +71,97 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
     script.id = 'paypal-sdk';
     script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD`;
     script.async = true;
-    script.onload = () => setPaypalReady(true);
+    
+    script.onload = () => {
+      console.log('PayPal SDK loaded successfully');
+      setPaypalReady(true);
+    };
+    
+    script.onerror = () => {
+      console.error('PayPal SDK failed to load - check client ID and network');
+      setMessage('PayPal failed to load. Please use the card payment option instead.');
+      setPaypalReady(false);
+    };
+    
+    // Timeout after 10 seconds
+    const timeout = setTimeout(() => {
+      if (!window.paypal) {
+        console.error('PayPal SDK load timeout');
+        setMessage('PayPal loading took too long. Please use card payment instead.');
+        setPaypalReady(false);
+      }
+    }, 10000);
+    
     document.head.appendChild(script);
+    
+    return () => clearTimeout(timeout);
   }, [isPaid]);
 
   // Render PayPal buttons once SDK is ready
   useEffect(() => {
     if (!paypalReady || !paypalContainerRef.current || paypalRendered.current) return;
+    
+    if (!window.paypal) {
+      console.error('PayPal SDK not available');
+      setMessage('PayPal is unavailable. Please use card payment instead.');
+      return;
+    }
+
     paypalRendered.current = true;
 
-    window.paypal.Buttons({
-      style: {
-        layout: 'horizontal',
-        color: 'gold',
-        shape: 'rect',
-        label: 'pay',
-        tagline: false,
-        height: 48,
-      },
-      createOrder: (_data: any, actions: any) => {
-        return actions.order.create({
-          purchase_units: [{
-            description: `Beat License: ${beat.title}`,
-            amount: { currency_code: 'USD', value: beatPrice.toFixed(2) },
-          }],
-        });
-      },
-      onApprove: async (data: any, _actions: any) => {
-        try {
-          const response = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/capture-paypal`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${publicAnonKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ orderId: data.orderID, expectedAmount: beatPrice }),
+    try {
+      window.paypal.Buttons({
+        style: {
+          layout: 'horizontal',
+          color: 'gold',
+          shape: 'rect',
+          label: 'pay',
+          tagline: false,
+          height: 48,
+        },
+        createOrder: (_data: any, actions: any) => {
+          return actions.order.create({
+            purchase_units: [{
+              description: `Beat License: ${beat.title}`,
+              amount: { currency_code: 'USD', value: beatPrice.toFixed(2) },
+            }],
+          });
+        },
+        onApprove: async (data: any, _actions: any) => {
+          try {
+            const response = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-fe24c337/capture-paypal`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${publicAnonKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ orderId: data.orderID, expectedAmount: beatPrice }),
+              }
+            );
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+              setMessage(result.error || 'Payment verification failed. Please contact support.');
+              return;
             }
-          );
-          const result = await response.json();
-          if (!response.ok || !result.success) {
-            setMessage(result.error || 'Payment verification failed. Please contact support.');
-            return;
+            setMessage('Payment verified! Your download is starting.');
+            triggerDownload();
+            setTimeout(() => onClose(), 3000);
+          } catch {
+            setMessage('Payment verification failed. Please try again.');
           }
-          setMessage('Payment verified! Your download is starting.');
-          triggerDownload();
-          setTimeout(() => onClose(), 3000);
-        } catch {
-          setMessage('Payment verification failed. Please try again.');
-        }
-      },
-      onError: (err: any) => {
-        console.error('PayPal error:', err);
-        setMessage('PayPal payment failed. Please try again.');
-      },
-    }).render(paypalContainerRef.current);
+        },
+        onError: (err: any) => {
+          console.error('PayPal error:', err);
+          setMessage('PayPal payment failed. Please try again or use card payment.');
+        },
+      }).render(paypalContainerRef.current);
+    } catch (error) {
+      console.error('Error rendering PayPal buttons:', error);
+      setMessage('PayPal failed to initialize. Please use card payment instead.');
+      paypalRendered.current = false;
+    }
   }, [paypalReady]);
 
   const triggerDownload = async () => {
@@ -363,8 +406,11 @@ export function DownloadModal({ beat, onClose }: DownloadModalProps) {
 
               <div ref={paypalContainerRef} className="min-h-[48px]">
                 {!paypalReady && (
-                  <div className="flex items-center justify-center h-12">
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                  <div className="flex items-center justify-center h-12 bg-white/5 rounded-lg border-2 border-white/10">
+                    <div className="flex flex-col items-center gap-1">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                      <span className="text-xs text-gray-500">Loading PayPal...</span>
+                    </div>
                   </div>
                 )}
               </div>
